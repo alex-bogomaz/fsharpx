@@ -43,14 +43,14 @@ let ``task should return the right value after let!``() =
 [<Test>]
 let ``task should return the right value after return!``() =
     let task = Task.TaskBuilderWithToken()
-    let t =
+    let t = 
         task {
             return! Task.Factory.StartNew(fun () -> "hello world")
         }    
     checkSuccess "hello world" t
 
 [<Test>]
-let ``exception in task``() =
+let ``exception in task``() =    
     let task = Task.TaskBuilderWithToken(continuationOptions = TaskContinuationOptions.ExecuteSynchronously)
     let t = 
         task {
@@ -61,7 +61,7 @@ let ``exception in task``() =
     | _ -> Assert.Fail "task should have errored"
 
 [<Test>]
-let ``canceled task``() =
+let ``canceled task``() =    
     let task = Task.TaskBuilderWithToken()
     let cts = new CancellationTokenSource()
     let t = 
@@ -77,7 +77,7 @@ let ``canceled task 2``() =
         task {
             let! v = Task.Factory.StartNew(fun () -> 0)
             return ()
-        }
+        }    
     checkCancelled t
 
 [<Test>]
@@ -86,7 +86,7 @@ let ``return should return value``() =
     let t = 
         task {            
             return 100
-        }
+        }    
     checkSuccess 100 t  
 
 [<Test>]
@@ -150,18 +150,16 @@ let ``task should be delayed``() =
     checkSuccess "hello world" t
     Assert.AreEqual(1, !i)
 
-let whileExpression (i: ref<int>) = 
-    let task = Task.TaskBuilderWithToken(continuationOptions = TaskContinuationOptions.ExecuteSynchronously)    
-    task {
-        while !i > 0 do
-            decr i
-            do! Task.Factory.StartNew ignore
-    }
-
 [<Test>]
-let ``while``() =
-    let i = ref 10        
-    let t = whileExpression i
+let ``while``() = 
+    let i = ref 10    
+    let task = Task.TaskBuilderWithToken(continuationOptions = TaskContinuationOptions.ExecuteSynchronously)
+    let t =
+        task {
+            while !i > 0 do
+                decr i
+                do! Task.Factory.StartNew ignore
+        }
     Task.run (fun () -> t CancellationToken.None)  |> ignore
     Assert.AreEqual(0, !i)
 
@@ -169,7 +167,13 @@ let ``while``() =
 [<Test>]
 let ``cancel while``() = 
     let i = ref 10
-    let t = whileExpression i    
+    let task = Task.TaskBuilderWithToken(continuationOptions = TaskContinuationOptions.ExecuteSynchronously)
+    let t =
+        task {
+            while !i > 0 do
+                decr i
+                do! Task.Factory.StartNew ignore
+        }    
     checkCancelled t
     Assert.AreEqual(10, !i)
 
@@ -207,10 +211,29 @@ let ``for``() =
         task {
             for x in s do
                 i := !i + x
+                Console.WriteLine(x)
+                Console.WriteLine(!i)
+                Console.WriteLine("====")
                 do! Task.Factory.StartNew ignore
         }
     Task.run (fun () -> t CancellationToken.None) |> ignore
     Assert.AreEqual(10, !i)
+(*
+
+open FsCheck
+open FsCheck.NUnit
+
+type TaskGen =
+    static member TaskArb =
+        Arb.generate |> Gen.map Task.returnM |> Arb.fromGen
+
+[<Test>]
+let ``run delay law``() =
+    Arb.register<TaskGen>() |> ignore
+    let task = Task.TaskBuilder(continuationOptions = TaskContinuationOptions.ExecuteSynchronously)
+    fsCheck "run delay law" (fun a -> (task.Run << task.Delay << konst) a = a)
+
+*)
 
 #endif
 
